@@ -1,0 +1,209 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="theme-color" content="#101a27">
+  <meta name="description" content="An interactive field guide to embedding geometry, hubness, calibration, and frozen text categorisation.">
+  <link rel="canonical" href="https://tech.anujsadani.in/understanding-debias/">
+  <meta property="og:url" content="https://tech.anujsadani.in/understanding-debias/">
+  <meta property="og:title" content="Beyond Similarity — A field guide to embedding correction">
+  <meta property="og:description" content="An interactive guide to embedding geometry, hubness, calibration, and frozen text categorisation.">
+  <title>Beyond Similarity — A field guide to embedding correction</title>
+  <link rel="stylesheet" href="assets/site.css">
+  <script defer src="assets/guide.js"></script>
+</head>
+<body>
+  <a class="skip-link" href="#main">Skip to the lesson</a>
+  <header class="topbar">
+    <a class="wordmark" href="#top" aria-label="Beyond Similarity, home"><span class="mark">∠</span> BEYOND SIMILARITY</a>
+    <nav aria-label="Main navigation"><a href="#map">Concept map</a><a href="#lab">Try the lab</a><a href="#reading">Research trail</a></nav>
+    <span class="edition">A visual field guide · 2026</span>
+  </header>
+  <main id="main">
+    <section class="hero wrap" id="top">
+      <div class="hero-copy">
+        <p class="eyebrow"><span class="live-dot"></span> EMBEDDINGS · RANKING · CLUSTERING</p>
+        <h1>When everything<br>looks <em>similar.</em></h1>
+        <p class="lede">A practical guide to a real problem in vector search: some candidates look relevant to almost every query. Learn what “debiasing” can mean, which correction fits which failure, and when a frozen assignment model earns your trust.</p>
+        <div class="hero-actions"><a class="button button-bright" href="#start">Start with the intuition <span aria-hidden="true">↘</span></a><a class="quiet-link" href="#map">Open the concept map <span aria-hidden="true">↗</span></a></div>
+        <p class="hero-note">No universal debias switch. Several precise tools, each for a different cause.</p>
+      </div>
+      <div class="hero-figure" role="img" aria-label="Many queries point toward a generic hub. After local-density correction, a specific result ranks first.">
+        <div class="figure-label">THE HUB PROBLEM <span>cosine neighbours</span></div>
+        <svg class="hero-network" viewBox="0 0 540 350" aria-hidden="true">
+          <g class="threads">
+            <path d="M54 55L365 163M42 120L365 163M78 265L365 163M173 42L365 163M198 307L365 163M440 45L365 163M488 251L365 163M286 324L365 163M28 194L365 163"/>
+            <path class="after-line" d="M54 55L172 116M42 120L172 116M78 265L200 233M173 42L172 116M198 307L200 233M440 45L435 112M488 251L435 112M286 324L200 233M28 194L172 116"/>
+          </g>
+          <g class="query-dots"><circle cx="54" cy="55" r="5"/><circle cx="42" cy="120" r="5"/><circle cx="78" cy="265" r="5"/><circle cx="173" cy="42" r="5"/><circle cx="198" cy="307" r="5"/><circle cx="440" cy="45" r="5"/><circle cx="488" cy="251" r="5"/><circle cx="286" cy="324" r="5"/><circle cx="28" cy="194" r="5"/></g>
+          <circle class="hub-ring" cx="365" cy="163" r="34"/><circle class="hub" cx="365" cy="163" r="8"/>
+          <circle class="result-a" cx="172" cy="116" r="10"/><circle class="result-b" cx="200" cy="233" r="10"/><circle class="result-c" cx="435" cy="112" r="10"/>
+          <text x="382" y="157" class="svg-label">generic</text><text x="382" y="175" class="svg-label">hub</text>
+          <text x="144" y="98" class="svg-label small">specific intent</text>
+          <text x="411" y="94" class="svg-label small">another intent</text>
+          <text x="18" y="338" class="svg-caption">BEFORE</text><text x="110" y="338" class="svg-caption after-caption">AFTER A LOCAL SCORE CORRECTION</text>
+        </svg>
+      </div>
+      <div class="hero-index"><span>01</span><span>UNDERSTAND THE FAILURE</span><span>02</span><span>CHOOSE A CORRECTION</span><span>03</span><span>TEST BEFORE FREEZING</span></div>
+    </section>
+
+    <section class="section paper" id="start">
+      <div class="wrap split">
+        <div class="section-label"><span class="label-rule"></span> A SHORT STORY</div>
+        <div>
+          <h2>A generic answer can win<br>for the wrong reason.</h2>
+          <p class="body-large">Imagine an assistant sorting short customer messages. “I can’t pay”, “my card won’t work”, and “where is my refund?” all mention payments. A broad “payment help” prototype can score well against every message, even when a more specific intent is a better match.</p>
+          <div class="scenario-grid">
+            <article class="scenario"><span class="scenario-type">MESSAGE</span><p>“My card was charged twice for the same order.”</p><span class="scenario-answer">Likely intent <b>duplicate charge</b></span></article>
+            <article class="scenario"><span class="scenario-type">THE AMBIGUITY</span><p>Shared words raise scores for card, payment, charge, and refund groups.</p><span class="scenario-answer muted-answer">Similarity is evidence, not a verdict.</span></article>
+          </div>
+          <p class="fineprint">These lines are illustrative, not sampled benchmark results. The public BANKING77 dataset below contains online banking queries and intent labels; it is support intent data, not product-review feedback.</p>
+          <aside class="adjacent-example"><span class="scenario-type">ANOTHER USE CASE · PRODUCT FEEDBACK</span><p>“Battery lasts all day, but the app disconnects whenever I travel.”</p><span class="scenario-answer muted-answer">Possible themes: battery life · app connectivity</span><small>Hand-authored illustration, not dataset text.</small></aside>
+        </div>
+      </div>
+    </section>
+
+    <section class="section ink" id="distinction">
+      <div class="wrap">
+        <div class="section-label"><span class="label-rule"></span> FIRST, NAME THE FAILURE</div>
+        <div class="section-heading-row"><h2>“Bias” can mean<br>three different things.</h2><p class="section-intro">Pick the symptom you can measure. A direction shared by vectors, a candidate that wins too often, and a mistaken training negative are not the same failure.</p></div>
+        <div class="failure-grid">
+          <article class="failure"><span class="failure-no">A</span><h3>Directions bunch together</h3><p>Many embeddings occupy a narrow cone or share dominant components. This is often called <strong>anisotropy</strong>. Mean subtraction or removing top components may help, if the shared directions are nuisance variation.</p><div class="mini-arrows" aria-hidden="true"><span>↗</span><span>↗</span><span>↗</span><span>→</span><i>one crowded direction</i></div><span class="failure-foot">Representation geometry · inspect first</span></article>
+          <article class="failure"><span class="failure-no">B</span><h3>One candidate wins everywhere</h3><p>A point retrieved by many unrelated queries is a <strong>hub</strong>. This is a neighbourhood / scoring problem. CSLS and local scaling compare a match against its local similarity background.</p><div class="mini-hub" aria-hidden="true"><b>•</b><span>↗</span><span>↗</span><span>↘</span><span>↙</span><span>→</span><i>many queries, one hub</i></div><span class="failure-foot">Ranking geometry · count top-k hits</span></article>
+          <article class="failure"><span class="failure-no">C</span><h3>Training calls a true match “negative”</h3><p>Contrastive training can push apart two texts that belong to the same intent. A <strong>false negative</strong> is a sampling/objective problem. Debiased contrastive methods adjust learning; they do not bolt onto frozen scores.</p><div class="mini-pair" aria-hidden="true"><span>card not working</span><b>← pushed apart →</b><span>card keeps declining</span></div><span class="failure-foot">Training objective · audit pair labels</span></article>
+        </div>
+        <p class="important-note"><b>Words such as “finance” or “manager” pointing in a similar direction do not by themselves prove bias.</b> First decide what the category means: function, industry, seniority, issue type, or customer intent. Then inspect actual errors and neighbourhoods.</p>
+      </div>
+    </section>
+
+    <section class="section paper" id="methods">
+      <div class="wrap">
+        <div class="section-label"><span class="label-rule"></span> FOUR FAMILIES OF TOOLS</div>
+        <div class="section-heading-row"><h2>Correct the cause.<br>Keep the useful signal.</h2><p class="section-intro">Methods that share an intuition can act at very different points in a system. This is the map to the right tool.</p></div>
+        <div class="method-table" role="table" aria-label="Methods and where they act">
+          <div class="method-row method-head" role="row"><span role="columnheader">WHERE</span><span role="columnheader">METHOD</span><span role="columnheader">WHAT CHANGES</span><span role="columnheader">WHEN TO TRY IT</span></div>
+          <div class="method-row" role="row"><span class="stage-chip">Inference</span><b>Local score correction<br><small>CSLS / local scaling</small></b><span>Corrects a candidate that looks similar to many queries.</span><span>Retrieval or prototype assignment has frequent hubs.</span></div>
+          <div class="method-row" role="row"><span class="stage-chip stage-violet">Inference</span><b>Cluster baseline offset<br><small>calibrated prototypes</small></b><span>Subtracts a per-cluster background score estimated from reference data.</span><span>A cluster gets a systematic score boost across unrelated examples.</span></div>
+          <div class="method-row" role="row"><span class="stage-chip stage-blue">Embeddings</span><b>Center / remove directions<br><small>All-but-the-Top family</small></b><span>Transforms embeddings, then recomputes similarities consistently.</span><span>Validation confirms dominant directions obscure task distinctions.</span></div>
+          <div class="method-row" role="row"><span class="stage-chip stage-gold">Training</span><b>Debiased contrastive learning<br><small>false-negative correction</small></b><span>Changes which examples the encoder pulls together or pushes apart.</span><span>You can train and have positives that are mislabeled as negatives.</span></div>
+          <div class="method-row" role="row"><span class="stage-chip stage-grey">Before model</span><b>Taxonomy + data review<br><small>human intent definition</small></b><span>Changes target labels, data balance, or ambiguous examples.</span><span>“Product domain” blends multiple axes or examples lack enough context.</span></div>
+        </div>
+        <div class="math-note"><div class="math-note-label">THE IMPORTANT GEOMETRY CHECK</div><p>For ordinary Euclidean distance, centering <em>both</em> a point and every centroid by the same mean changes nothing:</p><div class="equation">‖(x − μ) − (c<sub>k</sub> − μ)‖₂ = ‖x − c<sub>k</sub>‖₂</div><p>For cosine, re-normalising after centering can change angles. Removing directions can change either geometry. The transform must match the distance rule used at inference.</p></div>
+      </div>
+    </section>
+
+    <section class="section blue-section" id="lab">
+      <div class="wrap lab-layout">
+        <div class="lab-copy">
+          <div class="section-label"><span class="label-rule"></span> A SMALL, HONEST LAB</div>
+          <h2>What if “generic”<br>is the whole problem?</h2>
+          <p>For one invented message, raw cosine slightly prefers “payment help”. But that cluster also scores highly for many unrelated messages. A simple background correction asks how much of this score might be generic.</p>
+          <div class="formula-box"><span class="formula-kicker">A CANDIDATE BASELINE CORRECTION</span><div class="formula">adjusted(q,k) = cosine(q,c<sub>k</sub>) − λ · b<sub>k</sub></div><div class="formula-legend"><span><b>q</b> new message</span><span><b>c<sub>k</sub></b> cluster prototype</span><span><b>b<sub>k</sub></b> average background similarity</span></div></div>
+          <p><b>This is a hypothesis, not a universal algorithm.</b> The correction strength λ must be selected on held-out validation data. A wider margin does not mean the new ranking is correct.</p>
+          <a class="source-link" href="https://arxiv.org/abs/1710.04087" target="_blank" rel="noreferrer">CSLS: the established local-scaling idea ↗</a>
+        </div>
+        <div class="lab-card">
+          <div class="lab-card-head"><span>ILLUSTRATIVE NUMBERS</span><span class="demo-stamp">TOY · NOT MODEL OUTPUT</span></div>
+          <label class="slider-label" for="lambda"><span>Background correction <b>λ</b></span><output id="lambdaOut" for="lambda">0.0</output></label>
+          <input id="lambda" type="range" min="0" max="1.5" value="0" step="0.05">
+          <div class="example-query"><span>NEW SUPPORT MESSAGE</span><p>“My employee card payment never arrived.”</p></div>
+          <div class="score-head"><span>INTENT CANDIDATE</span><span>RAW</span><span>BACKGROUND</span><span>ADJUSTED</span></div>
+          <div id="scoreRows" aria-live="polite"></div>
+          <div class="winner-box" id="winnerBox" aria-live="polite"></div>
+          <div class="score-chart"><span class="chart-axis">RELATIVE SCORE<br><small>illustrative units</small></span><div id="barChart" role="img" aria-label="Adjusted score comparison for three illustrative intent candidates"></div></div>
+          <p class="toy-caveat">The score values and background baselines are invented solely to show the arithmetic. A changed winner is not evidence of improved accuracy. In a real run, estimate backgrounds on reference data and compare raw vs corrected top‑1 accuracy, macro‑F1, calibration, and reject/abstain behaviour.</p>
+          <button class="text-button" id="resetLab" type="button">Reset the toy example ↺</button>
+        </div>
+      </div>
+    </section>
+
+    <section class="section paper" id="pipeline">
+      <div class="wrap">
+        <div class="section-label"><span class="label-rule"></span> DISCOVER → MEASURE → FREEZE</div>
+        <div class="section-heading-row"><h2>Freezing is the<br>release step.</h2><p class="section-intro">A frozen model makes category assignment stable. It also preserves mistakes. Check the pipeline before calling the boundary “better”.</p></div>
+        <div class="pipeline" aria-label="Suggested model development workflow">
+          <article><span>01 · DEFINE</span><h3>Choose one axis</h3><p>Intent, issue type, job function, industry or seniority. Write examples that should stay together and examples that should separate.</p></article>
+          <article><span>02 · DISCOVER</span><h3>Cluster the corpus</h3><p>Embed the training corpus. Explore clusters, duplicates, frequent neighbours and the documents nearest each centre. Human-review the taxonomy.</p></article>
+          <article><span>03 · COMPARE</span><h3>Test corrections</h3><p>Keep train, validation and test separate. Compare a modern embedding baseline against calibrated prototypes, local scaling, and any justified embedding transform.</p></article>
+          <article><span>04 · RELEASE</span><h3>Freeze the full recipe</h3><p>Version the encoder, instructions, preprocessing, centres, corrections, thresholds, taxonomy and reference snapshot together.</p></article>
+        </div>
+        <div class="freeze-diagram"><div><span>TRAIN-TIME ARTEFACTS</span><b>encoder + text rules + transform + centres + correction + rejection thresholds</b></div><i aria-hidden="true">→</i><div><span>INFERENCE</span><b>new message → same recipe → ranked intents, or “uncertain”</b></div></div>
+        <p class="guardrail"><b>Do not silently force every message into a cluster.</b> Choose a rejection rule from validation examples and monitor drift. A new issue that does not fit the frozen taxonomy needs a path to review and a versioned taxonomy update.</p>
+      </div>
+    </section>
+
+    <section class="section ink" id="map">
+      <div class="wrap">
+        <div class="section-label"><span class="label-rule"></span> THE CONCEPT MAP</div>
+        <div class="section-heading-row"><h2>Follow the signal<br>to its failure point.</h2><p class="section-intro">Choose a node to open a short explanation. Each path ends with a different measurement and intervention.</p></div>
+        <div class="map-layout">
+          <div class="map-canvas">
+            <svg class="concept-map" viewBox="0 0 800 470" role="group" aria-label="Interactive concept map. Choose a node for details.">
+              <path class="map-edge" d="M400 222L168 106M400 222L401 74M400 222L640 108M400 222L168 350M400 222L400 385M400 222L638 350"/>
+              <g class="map-node active" tabindex="0" role="button" data-node="goal" aria-label="Goal: decide what should count as similar"><rect x="292" y="177" width="216" height="90" rx="4"/><text x="400" y="211" text-anchor="middle">THE GOAL</text><text x="400" y="237" text-anchor="middle" class="node-sub">what should be similar?</text></g>
+              <g class="map-node" tabindex="0" role="button" data-node="shape" aria-label="Anisotropy: many embeddings share directions"><rect x="64" y="66" width="210" height="80" rx="4"/><text x="169" y="97" text-anchor="middle">DIRECTION</text><text x="169" y="120" text-anchor="middle" class="node-sub">anisotropy · postprocess</text></g>
+              <g class="map-node" tabindex="0" role="button" data-node="hub" aria-label="Hubness: candidate appears in too many nearest-neighbour lists"><rect x="296" y="34" width="210" height="80" rx="4"/><text x="401" y="65" text-anchor="middle">NEIGHBOURS</text><text x="401" y="88" text-anchor="middle" class="node-sub">hubness · CSLS</text></g>
+              <g class="map-node" tabindex="0" role="button" data-node="negative" aria-label="False negatives: training pushes same-intent examples apart"><rect x="534" y="66" width="210" height="80" rx="4"/><text x="639" y="97" text-anchor="middle">TRAINING PAIRS</text><text x="639" y="120" text-anchor="middle" class="node-sub">false negatives · DCL</text></g>
+              <g class="map-node" tabindex="0" role="button" data-node="score" aria-label="Score bias: one cluster receives a systematic offset"><rect x="64" y="315" width="210" height="80" rx="4"/><text x="169" y="346" text-anchor="middle">SCORE OFFSET</text><text x="169" y="369" text-anchor="middle" class="node-sub">calibrate on validation</text></g>
+              <g class="map-node" tabindex="0" role="button" data-node="freeze" aria-label="Frozen inference: apply the exact same versioned recipe"><rect x="296" y="344" width="210" height="80" rx="4"/><text x="401" y="375" text-anchor="middle">FROZEN MODEL</text><text x="401" y="398" text-anchor="middle" class="node-sub">version the whole recipe</text></g>
+              <g class="map-node" tabindex="0" role="button" data-node="fairness" aria-label="Fairness bias is a different meaning of bias"><rect x="534" y="315" width="210" height="80" rx="4"/><text x="639" y="346" text-anchor="middle">FAIRNESS</text><text x="639" y="369" text-anchor="middle" class="node-sub">audit group outcomes</text></g>
+            </svg>
+            <div class="map-mobile" aria-label="Concept map topics"><button type="button" data-node="goal">The goal</button><button type="button" data-node="shape">Anisotropy</button><button type="button" data-node="hub">Hubness</button><button type="button" data-node="negative">False negatives</button><button type="button" data-node="score">Score offset</button><button type="button" data-node="freeze">Frozen model</button><button type="button" data-node="fairness">Fairness</button></div>
+          </div>
+          <aside class="map-detail" aria-live="polite"><span class="detail-overline" id="detailOverline">START HERE</span><h3 id="detailTitle">Choose the meaning you want to preserve.</h3><p id="detailText">A correction is only useful relative to a defined target. For a support assistant, that might be customer intent. For job titles, it might be function rather than industry or seniority.</p><div class="detail-prompt"><b>ASK</b><span id="detailPrompt">What should stay close, and what should separate?</span></div></aside>
+        </div>
+      </div>
+    </section>
+
+    <section class="section paper" id="applications">
+      <div class="wrap">
+        <div class="section-label"><span class="label-rule"></span> WHERE THE IDEAS STILL MATTER</div>
+        <div class="section-heading-row"><h2>The same geometry.<br>Different stakes.</h2><p class="section-intro">These ideas remain useful in today’s embedding pipelines. The right proof changes with the task.</p></div>
+        <div class="usecase-grid">
+          <article class="usecase usecase-featured"><span>01 · SUPPORT INTENTS</span><h3>Find the customer’s actual problem</h3><p>Discover emerging themes in short support messages; assign future messages to a reviewed, versioned intent set. Keep “unclear” available.</p><b>Measure · macro-F1, NMI/ARI for discovery, coverage vs error</b></article>
+          <article class="usecase"><span>02 · AI SEARCH / RAG</span><h3>Retrieve evidence, not just generic language</h3><p>A broadly relevant document can crowd out a specific answer. Test hub frequency and local score calibration in a retrieval pipeline.</p><b>Measure · Recall@k, MRR / nDCG, answer support</b></article>
+          <article class="usecase"><span>03 · JOB TAXONOMIES</span><h3>Separate shared words from shared work</h3><p>“Senior analyst” appears in many functions. Define whether the taxonomy describes role function, industry, or seniority before clustering.</p><b>Measure · held-out assignment + human review</b></article>
+          <article class="usecase"><span>04 · MULTILINGUAL MATCHING</span><h3>Match across different neighbourhood densities</h3><p>CSLS was developed for cross-domain word-vector matching. A 2026 preprint revisits hubness in multilingual retrieval; its results motivate testing, not a universal default.</p><b>Measure · mutual retrieval / recall on target languages</b></article>
+        </div>
+        <p class="fineprint">Modern use does not make every historical method universally effective. Results depend on encoder, corpus, labels, normalisation, candidate set, and metric. Model cards and broad embedding leaderboards do not replace a domain-specific test.</p>
+      </div>
+    </section>
+
+    <section class="section reading-section" id="reading">
+      <div class="wrap">
+        <div class="section-label"><span class="label-rule"></span> A RESEARCH TRAIL, NOT A VICTORY LAP</div>
+        <div class="section-heading-row"><h2>Old ideas.<br>Current questions.</h2><p class="section-intro">A short chronology shows how the topic branches. Each paper answers a narrower question than “does debiasing work?”</p></div>
+        <ol class="timeline">
+          <li><span class="year">2010</span><div><h3>Hubs in high-dimensional spaces</h3><p>Formalises the tendency of some points to become neighbours of many others. The general geometry predates modern transformer embeddings.</p><a href="https://jmlr.org/papers/v11/radovanovic10a.html" target="_blank" rel="noreferrer">Radovanović, Nanopoulos & Ivanović · JMLR ↗</a></div><span class="age-tag">FOUNDATION</span></li>
+          <li><span class="year">2017</span><div><h3>All-but-the-Top</h3><p>Subtracts a global mean and removes dominant principal components from word vectors. Evidence on word/sentence representation tasks; not automatic proof for modern job-title encoders.</p><a href="https://arxiv.org/abs/1702.01417" target="_blank" rel="noreferrer">Mu, Bhat & Viswanath · ICLR 2018 ↗</a></div><span class="age-tag">REPRESENTATION</span></li>
+          <li><span class="year">2017–18</span><div><h3>CSLS for cross-lingual retrieval</h3><p>Corrects similarity using local neighbourhood density. It changes retrieval ranking; it does not alter an encoder’s training or discover clusters.</p><a href="https://arxiv.org/abs/1710.04087" target="_blank" rel="noreferrer">Conneau et al. · ICLR 2018 ↗</a></div><span class="age-tag">RANKING</span></li>
+          <li><span class="year">2020</span><div><h3>Debiased contrastive learning</h3><p>Corrects for same-class examples sampled as negatives during self-supervised training. This “debias” has a distinct meaning from subtracting a cluster baseline at inference.</p><a href="https://arxiv.org/abs/2007.00224" target="_blank" rel="noreferrer">Chuang et al. · NeurIPS 2020 ↗</a></div><span class="age-tag">TRAINING</span></li>
+          <li><span class="year">2022</span><div><h3>DCLR for sentence representations</h3><p>Uses instance weighting and noise-based negatives; evaluates seven semantic-textual-similarity tasks. A useful bridge to NLP, though still not a job-taxonomy result.</p><a href="https://aclanthology.org/2022.acl-long.423/" target="_blank" rel="noreferrer">Zhou et al. · ACL 2022 ↗</a></div><span class="age-tag">NLP</span></li>
+          <li><span class="year">2023–24</span><div><h3>Hubness reduction in Sentence-BERT spaces</h3><p>Study reports reduced hubness and neighbourhood-classifier error when hubness is high. The paper explicitly measures its evaluated pretrained models; it does not guarantee gains on every dataset.</p><a href="https://arxiv.org/abs/2311.18364" target="_blank" rel="noreferrer">Nielsen & Hansen · NLDL 2024 ↗</a></div><span class="age-tag">TEXT EMBEDDINGS</span></li>
+          <li><span class="year">2024–25</span><div><h3>False negatives stay a live training issue</h3><p>Modern retrieval recipes still mine hard negatives and filter examples that may actually be relevant. Newer is not “solved”: label quality and the target domain matter.</p><a href="https://arxiv.org/abs/2407.15831" target="_blank" rel="noreferrer">NV-Retriever · 2024</a><span> · </span><a href="https://sbert.net/docs/package_reference/util/hard_negatives.html" target="_blank" rel="noreferrer">current Sentence Transformers guide ↗</a></div><span class="age-tag">PRACTICE</span></li>
+          <li><span class="year">2026</span><div><h3>Hubness vs anisotropy in multilingual retrieval</h3><p>A recent arXiv preprint reports hubness, rather than anisotropy, as the main driver of a particular multilingual retrieval asymmetry. Its scope is five encoders and four languages; independent replication and your task’s evaluation still matter.</p><a href="https://arxiv.org/abs/2605.26575" target="_blank" rel="noreferrer">Sakhawat et al. · arXiv preprint ↗</a></div><span class="age-tag tag-current">CURRENT PREPRINT</span></li>
+        </ol>
+        <details class="reading-note"><summary>Why does a 2017 method still appear in a modern guide?</summary><p>Because the mechanism is still testable, not because old numbers transfer. Use a contemporary encoder as the starting point, diagnose your task’s failure mode, then compare simple post-processing and local ranking methods on held-out examples. Retire a correction if it fails your benchmark.</p></details>
+      </div>
+    </section>
+
+    <section class="section paper" id="benchmark">
+      <div class="wrap benchmark-wrap">
+        <div class="section-label"><span class="label-rule"></span> FIRST HELD-OUT MEASUREMENT</div>
+        <h2>What did the held-out test say?</h2>
+        <p class="body-large">On five closely related BANKING77 intents, a validation-tuned mean-background offset raised test accuracy by 0.5 percentage points and macro-F1 by 0.52 points. CSLS lowered both by about 0.5 points. That is a small, task-specific result, not proof of a general “debias” improvement.</p>
+        <div class="benchmark-checks"><span>MEASURED · official test split held out</span><span>MEASURED · λ selected on validation only</span><span>MEASURED · cosine, mean correction, and CSLS</span><span>LIMIT · five known intents, not discovery</span><span>LIMIT · 200 filtered test messages</span><span>NEXT · error review, abstention, and calibration</span></div>
+        <p class="fineprint">Reference task: <a href="https://github.com/PolyAI-LDN/task-specific-datasets" target="_blank" rel="noreferrer">BANKING77</a> — 77 online-banking query intents, distributed by PolyAI under CC BY 4.0. It benchmarks customer-support intent matching, not consumer product reviews. The selected intent names, split counts, and model details are included with the result. The small product-feedback examples elsewhere are hand-authored teaching examples.</p>
+        <div id="benchmarkResults" class="benchmark-result-panel" aria-live="polite">
+          <span class="detail-overline">EXPERIMENT STATUS</span>
+          <p>No held-out measurement is published here yet. The interactive score lab above uses invented arithmetic.</p>
+        </div>
+      </div>
+    </section>
+
+    <section class="last-step" id="video"><div class="wrap last-step-inner"><span class="last-step-chip">LATER · FINAL STEP</span><h2>Once the explanation holds up,<br>then make the film.</h2><p>The eventual video can follow one message through the embedding, the crowded neighbourhood, the correction, the held-out test, and a versioned frozen model. First, make sure this lesson and its experiment are right.</p><a href="#top" class="button button-outline">Return to the beginning ↑</a></div></section>
+  </main>
+  <footer class="footer"><div class="wrap footer-inner"><a class="wordmark" href="#top"><span class="mark">∠</span> BEYOND SIMILARITY</a><p>Concepts are distinguished by their mechanism. Claims link to papers, current docs, or a clearly labelled illustrative example.</p><a href="#reading">Research trail ↑</a></div></footer>
+</body>
+</html>

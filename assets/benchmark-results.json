@@ -1,0 +1,80 @@
+{
+  "status": "measured",
+  "retrieved_on": "2026-10-30",
+  "task": "Frozen cosine-prototype assignment on five closely related BANKING77 intents",
+  "dataset": {
+    "id": "PolyAI/banking77",
+    "source": "https://github.com/PolyAI-LDN/task-specific-datasets/tree/57ec275d8078af65b7731c2a98be812d844a6d6b/banking_data",
+    "revision": "57ec275d8078af65b7731c2a98be812d844a6d6b",
+    "citation": "Casanueva et al., Efficient Intent Detection with Dual Sentence Encoders (2020), NLP4ConvAI / ACL.",
+    "license": "CC BY 4.0",
+    "selected_intents": [
+      "cash_withdrawal_not_recognised",
+      "wrong_exchange_rate_for_cash_withdrawal",
+      "pending_cash_withdrawal",
+      "cash_withdrawal_charge",
+      "declined_cash_withdrawal"
+    ],
+    "counts": {
+      "prototype_fit": 506,
+      "background_reference": 147,
+      "validation": 163,
+      "official_test": 200
+    },
+    "split_note": "Original official test split used only for final evaluation; official train split stratified by seed 731 into fit, reference and validation."
+  },
+  "model": {
+    "id": "Qwen/Qwen3-Embedding-0.6B",
+    "library": "sentence-transformers",
+    "library_version": "6.2.0",
+    "encoder_frozen": true,
+    "instruction": "Instruct: Group short online-banking support messages by their specific customer intent, distinguishing related cash-withdrawal issues.\nQuery:",
+    "device": "mps",
+    "normalization": "L2 unit vectors; cosine similarity by dot product"
+  },
+  "methods": {
+    "cosine": "Uncorrected cosine similarity to L2-normalized intent centroids.",
+    "mean_baseline": "cosine(q,c_k) - lambda * mean_{r in independent reference}(cosine(r,c_k)); lambda selected on validation macro-F1.",
+    "csls": "2*cosine(q,c_k) - r_query(q) - r_candidate(c_k), with top-10 local neighbourhood averages; query-side term is constant across candidates for each query."
+  },
+  "selected_lambda": 0.15,
+  "metrics": {
+    "cosine": {
+      "accuracy": 0.935,
+      "macro_f1": 0.9343713330365906
+    },
+    "mean_baseline": {
+      "accuracy": 0.94,
+      "macro_f1": 0.9395219815018955
+    },
+    "csls": {
+      "accuracy": 0.93,
+      "macro_f1": 0.9291887273552538
+    }
+  },
+  "absolute_delta_vs_cosine": {
+    "mean_baseline": {
+      "accuracy": 0.004999999999999893,
+      "macro_f1": 0.005150648465304886
+    },
+    "csls": {
+      "accuracy": -0.0050000000000000044,
+      "macro_f1": -0.005182605681336772
+    }
+  },
+  "raw_cosine_top1_intent_counts": {
+    "cash_withdrawal_not_recognised": 42,
+    "wrong_exchange_rate_for_cash_withdrawal": 35,
+    "pending_cash_withdrawal": 33,
+    "cash_withdrawal_charge": 44,
+    "declined_cash_withdrawal": 46
+  },
+  "interpretation": "Small domain-specific evaluation, not a general benchmark. The encoder was frozen; a label-centroid prototype was fitted on training examples, so this measures known-intent assignment, not unsupervised cluster discovery. No correction is presumed to help.",
+  "environment": {
+    "python": "3.12.15",
+    "torch": "2.14.1",
+    "numpy": "2.5.4",
+    "scikit_learn": "1.9.1",
+    "random_seed": 731
+  }
+}
